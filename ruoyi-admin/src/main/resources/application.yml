@@ -145,8 +145,8 @@ wx:
 
 
 cos:
-    secretId: AKIDb9bGxVt6NWVK0X5UhhT5VvCMPJ0TvDNL
-    secretKey: qX3MRM8i4IPK2Xs1xfLySjnhOs9D61kG
-    region: ap-guangzhou
-    bucket: freedorm-1310002116
-    domain: https://freedorm-1310002116.cos.ap-guangzhou.myqcloud.com
+    secretId:
+    secretKey:
+    region:
+    bucket:
+    domain:
