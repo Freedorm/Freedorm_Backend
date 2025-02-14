@@ -55,6 +55,9 @@ public class SysDept extends BaseEntity
     /** 子部门 */
     private List<SysDept> children = new ArrayList<SysDept>();
 
+    /** 设备id*/
+    private String deviceId;
+
     public String getDeviceId() {
         return deviceId;
     }
@@ -63,7 +66,6 @@ public class SysDept extends BaseEntity
         this.deviceId = deviceId;
     }
 
-    private String deviceId;
 
     public Long getDeptId()
     {
@@ -208,6 +210,7 @@ public class SysDept extends BaseEntity
             .append("createTime", getCreateTime())
             .append("updateBy", getUpdateBy())
             .append("updateTime", getUpdateTime())
+            .append("deviceId", getDeviceId())
             .toString();
     }
 }

@@ -36,6 +36,7 @@
 		<result property="orderNum"  column="order_num"   />
 		<result property="leader"    column="leader"      />
 		<result property="status"    column="dept_status" />
+		<result property="deviceId"  column="device_id"   />
 	</resultMap>
 
 	<resultMap id="RoleResult" type="SysRole">
@@ -49,7 +50,7 @@
 
 	<sql id="selectUserVo">
 		SELECT u.user_id, u.dept_id, u.user_name, u.nick_name, u.email, u.avatar, u.phonenumber, u.password, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.create_by, u.create_time, u.remark, u.openid, <!-- 新增 openid 字段 -->
-		d.dept_id, d.parent_id, d.ancestors, d.dept_name, d.order_num, d.leader, d.status AS dept_status,
+		d.dept_id, d.parent_id, d.ancestors, d.dept_name, d.order_num, d.leader, d.status, d.device_id AS dept_status,
 		r.role_id, r.role_name, r.role_key, r.role_sort, r.data_scope, r.status AS role_status
 		FROM sys_user u
 		LEFT JOIN sys_dept d ON u.dept_id = d.dept_id
@@ -58,7 +59,7 @@
 	</sql>
 
 	<select id="selectUserList" parameterType="SysUser" resultMap="SysUserResult">
-		SELECT u.user_id, u.dept_id, u.nick_name, u.user_name, u.email, u.avatar, u.phonenumber, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.create_by, u.create_time, u.remark, u.openid, d.dept_name, d.leader <!-- 新增 openid 字段 -->
+		SELECT u.user_id, u.dept_id, u.nick_name, u.user_name, u.email, u.avatar, u.phonenumber, u.sex, u.status, u.del_flag, u.login_ip, u.login_date, u.create_by, u.create_time, u.remark, u.openid, d.dept_name, d.leader, d.device_id <!-- 新增 openid 字段 -->
 		FROM sys_user u
 		LEFT JOIN sys_dept d ON u.dept_id = d.dept_id
 		WHERE u.del_flag = '0'

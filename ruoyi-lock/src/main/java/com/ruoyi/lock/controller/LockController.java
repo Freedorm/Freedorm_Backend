@@ -1,5 +1,6 @@
 package com.ruoyi.lock.controller;
 
+import com.ruoyi.common.annotation.Anonymous;
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysDept;
@@ -19,12 +20,17 @@ import com.ruoyi.lock.service.IDevicesService;
 import com.ruoyi.lock.service.ILockService;
 import com.ruoyi.lock.service.MqttGateway;
 import com.ruoyi.lock.domain.MqttMessage;
+import com.ruoyi.system.service.impl.SysDeptServiceImpl;
+import com.ruoyi.system.service.impl.SysUserServiceImpl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.HashOperations;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import javax.annotation.Resource;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;
@@ -57,10 +63,16 @@ public class LockController {
     private FreedormLockSchedulesMapper schedulesMapper;
 
     @Autowired
-    private RedisCache redisCache;
+    private SysUserServiceImpl sysUserServiceImpl;
+
+    @Autowired
+    private SysDeptServiceImpl sysDeptServiceImpl;
+
+    @Resource
+    private RedisTemplate<String, Object> redisTemplate;
 
     @PostMapping("/doorOpenOnce")
-    @PreAuthorize("@ss.hasPermi('lock:doorOpenOnce')")
+    @PreAuthorize("@ss.hasRole('dm')")
     @Log(title = "门锁操作", businessType = BusinessType.OPEN)
     public AjaxResult doorOpenOnce(@RequestBody Map<String, Object> requestBody){
         String deviceId;
@@ -138,81 +150,106 @@ public class LockController {
 
     /**
      * 生成访客码
-     * POST /api/lock/generateVisitorCode
+     * POST /lock/generateVisitorCode
      * 请求参数：
      * - validTimeMinutes：有效时间，以分为单位
      * - maxUsage：可用次数
      */
     @PostMapping("/generateVisitorCode")
-    @PreAuthorize("@ss.hasPermi('lock:visitor:generate')")
+    @PreAuthorize("@ss.hasRole('dm')")
     public AjaxResult generateVisitorCode(
             @RequestParam("validTimeMinutes") @Min(value = 1, message = "有效时间必须大于0") Integer validTimeMinutes,
             @RequestParam("maxUsage") @Min(value = 1, message = "可用次数必须至少为1") Integer maxUsage) {
-        // 生成唯一的访客码，这里使用UUID
+
+        // 生成唯一的访客码
         String visitorCode = UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
 
-        // 定义Redis键
+        // 获取当前用户的deviceId
+//        String deviceId = SecurityUtils.getLoginUser().getUser().getDept().getDeviceId();
+        long userId = SecurityUtils.getUserId();
+        SysUser user = sysUserServiceImpl.selectUserById(userId);
+        SysDept dept = sysDeptServiceImpl.selectDeptById(user.getDeptId());
+        String deviceId = dept.getDeviceId();
+        // 定义 Redis 键
         String redisKey = VISITOR_CODE_PREFIX + visitorCode;
 
-        // 存储访客码及其可用次数
-        redisCache.setCacheObject(redisKey, maxUsage, validTimeMinutes, TimeUnit.MINUTES);
+        // 使用 Redis Hash 存储访客码信息
+        Map<String, Object> visitorCodeInfo = new HashMap<>();
+        visitorCodeInfo.put("usageCount", maxUsage); // 存储可用次数
+        visitorCodeInfo.put("deviceId", deviceId);   // 存储设备 ID
 
-        logger.info("生成访客码: {}，有效时间: {} 分钟，可用次数: {}", visitorCode, validTimeMinutes, maxUsage);
+        // 获取 HashOperations
+        HashOperations<String, Object, Object> hashOps = redisTemplate.opsForHash();
 
-        // 返回访客码给客户端
+        // 存储访客码信息到 Redis Hash，并设置过期时间
+        hashOps.putAll(redisKey, visitorCodeInfo);
+        redisTemplate.expire(redisKey, validTimeMinutes, TimeUnit.MINUTES); // 设置统一的过期时间
+
+        logger.info("生成访客码: {}，设备ID: {}，有效时间: {} 分钟，可用次数: {}",
+                visitorCode, deviceId, validTimeMinutes, maxUsage);
+
+        // 返回访客码
         Map<String, String> response = new HashMap<>();
         response.put("visitorCode", visitorCode);
         return AjaxResult.success("访客码生成成功", response);
     }
 
+
     /**
      * 验证访客码并执行开门操作
-     * POST /api/lock/validateVisitorCode
-     * 请求参数：
-     * - visitorCode：访客码
+     * GET /api/lock/validateVisitorCode/{visitorCode}
      */
-    @PostMapping("/validateVisitorCode")
+    @Anonymous
+    @GetMapping("/validateVisitorCode/{visitorCode}")
     public AjaxResult validateVisitorCode(
-            @RequestParam("visitorCode") @NotBlank(message = "访客码不能为空") String visitorCode) {
+            @PathVariable("visitorCode") @NotBlank(message = "访客码不能为空") String visitorCode) {
         visitorCode = visitorCode.toUpperCase();
         String redisKey = VISITOR_CODE_PREFIX + visitorCode;
 
-        // 检查访客码是否存在
-        Boolean exists = redisCache.hasKey(redisKey);
+        // 获取 HashOperations
+        HashOperations<String, Object, Object> hashOps = redisTemplate.opsForHash();
+
+        // 检查访客码是否存在 (检查 Redis Key 是否存在)
+        Boolean exists = redisTemplate.hasKey(redisKey);
         if (exists == null || !exists) {
             logger.warn("无效或已过期的访客码: {}", visitorCode);
             return AjaxResult.error("无效或已过期的访客码");
         }
 
-        // 获取当前可用次数
-        Integer remainingUsage = (Integer) redisCache.getCacheObject(redisKey);
-        if (remainingUsage == null || remainingUsage <= 0) {
+        // 从 Redis Hash 中获取访客码信息
+        Map<Object, Object> visitorCodeInfo = hashOps.entries(redisKey);
+        int usageCount = Integer.parseInt(visitorCodeInfo.get("usageCount").toString()); // 获取剩余次数
+        String deviceId = (String) visitorCodeInfo.get("deviceId"); // 获取设备 ID
+
+        // 原子性减少可用次数
+        usageCount--; // 在内存中减少
+
+        if (usageCount < 0) {
+            // 清理缓存
+            redisTemplate.delete(redisKey);
             logger.warn("访客码已达到最大使用次数: {}", visitorCode);
-            redisCache.deleteObject(redisKey); // 删除已用完的访客码
             return AjaxResult.error("访客码已达到最大使用次数");
         }
 
-        // 原子性地减少可用次数
-        Long newUsage = redisCache.decrement(redisKey, 1);
-        if (newUsage == null || newUsage < 0) {
-            logger.error("访客码使用次数减少失败或次数不足: {}", visitorCode);
+        // 更新 Redis Hash 中的剩余次数
+        hashOps.put(redisKey, "usageCount", usageCount);
+
+        if (deviceId == null) { // 理论上 deviceId 不应该为 null，除非数据异常
+            redisTemplate.delete(redisKey); // 数据异常时清理缓存
+            logger.error("设备ID信息缺失: {}", visitorCode);
             return AjaxResult.error("访客码验证失败");
         }
 
-        if (newUsage == 0) {
-            // 使用次数用完，删除访客码
-            redisCache.deleteObject(redisKey);
+        // 次数用尽后删除缓存
+        if (usageCount == 0) {
+            redisTemplate.delete(redisKey);
             logger.info("访客码已用完并删除: {}", visitorCode);
         } else {
-            logger.info("访客码剩余使用次数: {}，访客码: {}", newUsage, visitorCode);
+            logger.info("访客码剩余次数: {}，访客码: {}", usageCount, visitorCode);
         }
 
-        String deviceId = "123123"; // 需要根据实际情况修改
-        int duration = 5; // 开门持续时间，单位秒，您可以根据需要调整
-
-        // 调用现有的开门方法
-        doorOpenOnceAction(deviceId, duration);
-
+        // 执行开门操作
+        doorOpenOnceAction(deviceId, 5); // 假设开门持续5秒
         return AjaxResult.success("开门操作已执行");
     }
 
