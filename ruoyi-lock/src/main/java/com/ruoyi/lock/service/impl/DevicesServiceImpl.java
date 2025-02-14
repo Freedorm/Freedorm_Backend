@@ -127,6 +127,7 @@ public class DevicesServiceImpl implements IDevicesService
             dept.setParentId(200L);
             dept.setOrderNum(0);
             dept.setLeader(user.getNickName());
+            dept.setDeviceId(device.getDeviceId());
             user.setDeptId(deptService.insertDeptWithReturn(dept));
             Long[] roleIds;
             if (user.getRoleIds() == null) {

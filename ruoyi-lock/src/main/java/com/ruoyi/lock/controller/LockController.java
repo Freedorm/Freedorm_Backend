@@ -2,6 +2,8 @@ package com.ruoyi.lock.controller;
 
 import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
+import com.ruoyi.common.core.domain.entity.SysDept;
+import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.redis.RedisCache;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.enums.OperatorType;
@@ -61,10 +63,13 @@ public class LockController {
     @PreAuthorize("@ss.hasPermi('lock:doorOpenOnce')")
     @Log(title = "门锁操作", businessType = BusinessType.OPEN)
     public AjaxResult doorOpenOnce(@RequestBody Map<String, Object> requestBody){
-        if (!requestBody.containsKey("deviceId") || !requestBody.containsKey("duration")) {
+        String deviceId;
+        if (!requestBody.containsKey("deviceId")) {
+            deviceId = SecurityUtils.getLoginUser().getUser().getDept().getDeviceId();
+        } else if (!requestBody.containsKey("duration")) {
             return AjaxResult.error("请求参数缺失");
         }
-        String deviceId = (String) requestBody.get("deviceId");
+        deviceId = (String) requestBody.get("deviceId");
         int duration = (int) requestBody.get("duration");
         Map<String, Object> data = new HashMap<>();
         data.put("duration", duration);
