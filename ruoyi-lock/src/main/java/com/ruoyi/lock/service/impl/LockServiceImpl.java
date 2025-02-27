@@ -1,6 +1,5 @@
 package com.ruoyi.lock.service.impl;
 
-import com.ruoyi.common.exception.OverlappingTimingException;
 import com.ruoyi.lock.domain.Devices;
 import com.ruoyi.lock.domain.FreedormLockSchedule;
 import com.ruoyi.lock.dto.AddTimingRequest;
@@ -9,7 +8,6 @@ import com.ruoyi.lock.dto.ExistingTimingResponse;
 import com.ruoyi.lock.mapper.FreedormLockSchedulesMapper;
 import com.ruoyi.lock.service.ILockService;
 import com.ruoyi.lock.service.MqttGateway;
-import com.ruoyi.lock.domain.MqttMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,21 +37,6 @@ public class LockServiceImpl implements ILockService {
 
             // 插入数据库
             schedulesMapper.insertFreedormLockSchedule(schedule);
-
-            // 发送 MQTT 消息给设备，通知添加定时开门时间段
-            Map<String, Object> data = new HashMap<>();
-            data.put("action", "add_timing");
-            data.put("day_of_week", day);
-            data.put("start_time", schedule.getStartTime());
-            data.put("end_time", schedule.getEndTime());
-
-            MqttMessage<Map<String, Object>> message = new MqttMessage<>();
-            message.setOperate("timing_update");
-            message.setTimestamp(System.currentTimeMillis() / 1000);
-            message.setData(data);
-
-            String topic = "/" + device.getDeviceId() + "/server2client";
-            mqttGateway.sendToMqtt(topic, message);
         }
     }
 
@@ -92,21 +75,6 @@ public class LockServiceImpl implements ILockService {
             if (deletedRows == 0) {
                 throw new NoSuchElementException("未找到对应的时间段记录，deviceId: " + request.getDeviceId() + ", dayOfWeek: " + day);
             }
-
-            // 发送 MQTT 消息给设备，通知删除定时开门时间段
-            Map<String, Object> data = new HashMap<>();
-            data.put("action", "delete_timing");
-            data.put("day_of_week", day);
-            data.put("start_time", schedule.getStartTime());
-            data.put("end_time", schedule.getEndTime());
-
-            MqttMessage<Map<String, Object>> message = new MqttMessage<>();
-            message.setOperate("timing_update");
-            message.setTimestamp(System.currentTimeMillis() / 1000);
-            message.setData(data);
-
-            String topic = "/" + request.getDeviceId() + "/server2client";
-            mqttGateway.sendToMqtt(topic, message);
         }
     }
 

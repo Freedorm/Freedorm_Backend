@@ -26,16 +26,7 @@ public class MqttMessageHandler {
         try {
             // 解析消息
             MqttMessage mqttMessage = objectMapper.readValue(payload, MqttMessage.class);
-            String operate = mqttMessage.getOperate();
-            // 根据操作类型处理消息
-            switch (operate) {
-                case "door_event":
-                    handleDoorEvent(mqttMessage);
-                    break;
-                // 添加其他操作类型的处理
-                default:
-                    logger.warn("Unknown operation: {}", operate);
-            }
+            handleDoorEvent(mqttMessage);
         } catch (Exception e) {
             logger.error("Error processing MQTT message", e);
         }
@@ -43,7 +34,19 @@ public class MqttMessageHandler {
 
     private void handleDoorEvent(MqttMessage mqttMessage) {
         // 处理门锁事件
-        logger.info("Handling door event: {}", mqttMessage.getData());
+        logger.info("Handling door event: {}", mqttMessage.toString());
         // 根据业务需求进行处理，例如记录事件、更新状态等
+        MqttMessage.OperateType operate = mqttMessage.getOperate();
+        // 根据操作类型处理消息
+        switch (operate) {
+            case EVENT:
+
+                break;
+            case ADD:
+
+                break;
+            default:
+                logger.warn("Unknown operation: {}", operate);
+        }
     }
 }

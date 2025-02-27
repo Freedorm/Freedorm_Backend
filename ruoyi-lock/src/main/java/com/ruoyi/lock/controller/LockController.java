@@ -5,7 +5,6 @@ import com.ruoyi.common.annotation.Log;
 import com.ruoyi.common.core.domain.AjaxResult;
 import com.ruoyi.common.core.domain.entity.SysDept;
 import com.ruoyi.common.core.domain.entity.SysUser;
-import com.ruoyi.common.core.redis.RedisCache;
 import com.ruoyi.common.enums.BusinessType;
 import com.ruoyi.common.enums.OperatorType;
 import com.ruoyi.common.utils.SecurityUtils;
@@ -83,13 +82,9 @@ public class LockController {
         }
         deviceId = (String) requestBody.get("deviceId");
         int duration = (int) requestBody.get("duration");
-        Map<String, Object> data = new HashMap<>();
-        data.put("duration", duration);
 
-        MqttMessage<Map<String, Object>> message = new MqttMessage<>();
-        message.setOperate("door_open_once");
-        message.setTimestamp(System.currentTimeMillis() / 1000);
-        message.setData(data);
+        MqttMessage message = new MqttMessage();
+        message.setOperate(MqttMessage.OperateType.OPEN);
 
         String topic = "/" + deviceId + "/server2client";
         mqttGateway.sendToMqtt(topic, message);
@@ -253,19 +248,15 @@ public class LockController {
         return AjaxResult.success("开门操作已执行");
     }
 
+
     /**
      * 辅助方法：执行开门操作
      */
     @Log(title = "访客码开门操作", businessType = BusinessType.OPEN, operatorType = OperatorType.GUEST)
     private void doorOpenOnceAction(String deviceId, int duration) {
-        // 构建消息数据
-        Map<String, Object> data = new HashMap<>();
-        data.put("duration", duration);
-
-        MqttMessage<Map<String, Object>> message = new MqttMessage<>();
-        message.setOperate("door_open_once");
-        message.setTimestamp(System.currentTimeMillis() / 1000);
-        message.setData(data);
+        MqttMessage message = new MqttMessage();
+        message.setOperate(MqttMessage.OperateType.OPEN);
+        message.addDynamicParam("duration", String.valueOf(duration));
 
         String topic = "/" + deviceId + "/server2client";
         mqttGateway.sendToMqtt(topic, message);

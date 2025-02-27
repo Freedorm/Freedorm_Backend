@@ -70,7 +70,7 @@ public class SysUserController extends BaseController
     /**
      * 获取部门用户列表
      */
-    @PreAuthorize("@ss.hasPermi('system:user:listInDept')")
+    @PreAuthorize("@ss.hasRole('dm')")
     @GetMapping("/listInDept")
     public TableDataInfo listInDept(SysUser user)
     {
