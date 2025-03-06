@@ -2,6 +2,7 @@ package com.ruoyi.framework.security;
 
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.domain.model.LoginUser;
+import com.ruoyi.framework.web.service.SysPermissionService;
 import com.ruoyi.system.service.ISysUserService;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,7 +13,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -20,6 +20,9 @@ public class OpenIdAuthenticationProvider implements AuthenticationProvider {
 
     @Autowired
     private ISysUserService userService;
+
+    @Autowired
+    private SysPermissionService permissionService;
 
     @Setter
     @Getter
@@ -50,7 +53,7 @@ public class OpenIdAuthenticationProvider implements AuthenticationProvider {
         }
 
         // 构建用户详情
-        UserDetails loginUser = this.getUserDetailsService().loadUserByUsername(user.getUserName());
+        UserDetails loginUser = createLoginUser(user);
         // 构建新的认证信息
         return new OpenIdAuthenticationToken(loginUser, loginUser.getAuthorities());
     }
@@ -59,5 +62,10 @@ public class OpenIdAuthenticationProvider implements AuthenticationProvider {
     @Override
     public boolean supports(Class<?> authentication) {
         return OpenIdAuthenticationToken.class.isAssignableFrom(authentication);
+    }
+
+    public UserDetails createLoginUser(SysUser user)
+    {
+        return new LoginUser(user.getUserId(), user.getDeptId(), user, permissionService.getMenuPermission(user));
     }
 }
