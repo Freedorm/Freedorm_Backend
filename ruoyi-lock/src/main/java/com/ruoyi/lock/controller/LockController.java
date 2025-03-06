@@ -85,6 +85,7 @@ public class LockController {
 
         MqttMessage message = new MqttMessage();
         message.setOperate(MqttMessage.OperateType.OPEN);
+        message.addDynamicParam("duration", String.valueOf(duration));
 
         String topic = "/" + deviceId + "/server2client";
         mqttGateway.sendToMqtt(topic, message);

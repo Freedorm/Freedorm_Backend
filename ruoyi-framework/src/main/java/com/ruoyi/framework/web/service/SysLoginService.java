@@ -119,28 +119,25 @@ public class SysLoginService
         if (!wxMaService.switchover(appid)) {
             throw new ServiceException(String.format("未找到对应appid=[%s]的配置，请核实！", appid));
         }
-
+        Authentication authentication = null;
         try {
             WxMaJscode2SessionResult session = wxMaService.getUserService().getSessionInfo(code);
             String openId = session.getOpenid();
-
             OpenIdAuthenticationToken authenticationToken = new OpenIdAuthenticationToken(openId);
-
-            Authentication authentication = authenticationManager.authenticate(authenticationToken);
-
-            LoginUser loginUser = (LoginUser) authentication.getPrincipal();
-            AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginUser.getUsername(), Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
-            // 记录登录信息
-            recordLoginInfo(loginUser.getUserId());
-
-            // 生成token
-            return tokenService.createToken(loginUser);
-
+            authentication = authenticationManager.authenticate(authenticationToken);
         } catch (WxErrorException e) {
             throw new ServiceException("微信登录失败：未知错误");
         } catch (Exception e) {
             throw new ServiceException("登录失败：" + e.getMessage());
+        } finally {
+            AuthenticationContextHolder.clearContext();
         }
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        AsyncManager.me().execute(AsyncFactory.recordLogininfor(loginUser.getUsername(), Constants.LOGIN_SUCCESS, MessageUtils.message("user.login.success")));
+        // 记录登录信息
+        recordLoginInfo(loginUser.getUserId());
+        // 生成token
+        return tokenService.createToken(loginUser);
     }
 
     /**

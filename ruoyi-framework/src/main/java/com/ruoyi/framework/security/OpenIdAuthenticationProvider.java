@@ -3,11 +3,15 @@ package com.ruoyi.framework.security;
 import com.ruoyi.common.core.domain.entity.SysUser;
 import com.ruoyi.common.core.domain.model.LoginUser;
 import com.ruoyi.system.service.ISysUserService;
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.InternalAuthenticationServiceException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
@@ -16,6 +20,10 @@ public class OpenIdAuthenticationProvider implements AuthenticationProvider {
 
     @Autowired
     private ISysUserService userService;
+
+    @Setter
+    @Getter
+    private UserDetailsService userDetailsService;
 
     @Override
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
@@ -42,11 +50,11 @@ public class OpenIdAuthenticationProvider implements AuthenticationProvider {
         }
 
         // 构建用户详情
-        LoginUser loginUser = new LoginUser(user.getUserId(), user.getDeptId(), user, null);
-
+        UserDetails loginUser = this.getUserDetailsService().loadUserByUsername(user.getUserName());
         // 构建新的认证信息
         return new OpenIdAuthenticationToken(loginUser, loginUser.getAuthorities());
     }
+
 
     @Override
     public boolean supports(Class<?> authentication) {

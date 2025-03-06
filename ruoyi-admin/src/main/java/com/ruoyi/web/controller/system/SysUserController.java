@@ -74,8 +74,7 @@ public class SysUserController extends BaseController
     @GetMapping("/listInDept")
     public TableDataInfo listInDept(SysUser user)
     {
-        LoginUser loginUser = SecurityUtils.getLoginUser();
-        Long deptId = loginUser.getUser().getDeptId();
+        Long deptId = getDeptId();
         if (deptId == null) {
             List<SysUser> list = new ArrayList<>();
             return getDataTable(list);

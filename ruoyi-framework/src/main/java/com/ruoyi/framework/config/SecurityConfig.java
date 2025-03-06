@@ -80,6 +80,7 @@ public class SecurityConfig
     public AuthenticationManager authenticationManager()
     {
         DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
+        openIdAuthenticationProvider.setUserDetailsService(userDetailsService);
         daoAuthenticationProvider.setUserDetailsService(userDetailsService);
         daoAuthenticationProvider.setPasswordEncoder(bCryptPasswordEncoder());
         return new ProviderManager(daoAuthenticationProvider, openIdAuthenticationProvider);
